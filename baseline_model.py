@@ -14,11 +14,7 @@ pd.set_option('display.width', None)
 train = pd.read_csv('train.csv')
 test = pd.read_csv('test.csv')
 
-# print(train.shape)
-# print(test.shape)
-
 # print(train.head())
-#
 # print(train.info())
 # print(train.describe())
 
