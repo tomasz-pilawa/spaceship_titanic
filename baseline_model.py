@@ -79,6 +79,6 @@ def get_baseline_predictions(data_train, data_test):
     y_test.to_csv('predictions/output_1_baseline.csv', index=False)
 
 
-get_baseline_predictions(train, test)
+# get_baseline_predictions(train, test)
 
 
