@@ -10,14 +10,32 @@ from sklearn.pipeline import Pipeline
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
+from sklearn.base import BaseEstimator, TransformerMixin
+
 
 pd.set_option('display.width', None)
 
 train = pd.read_csv('train.csv')
 test = pd.read_csv('test.csv')
 
-cat_feats = ['HomePlanet', 'CryoSleep', 'Destination', 'VIP']
-num_feats = ['Age', 'RoomService', 'FoodCourt', 'ShoppingMall', 'Spa', 'VRDeck']
+cat_feats = ['HomePlanet', 'CryoSleep', 'Destination', 'VIP', 'AgeGroup']
+num_feats = ['RoomService', 'FoodCourt', 'ShoppingMall', 'Spa', 'VRDeck']
+
+
+class GeneralCLeaner(BaseEstimator, TransformerMixin):
+
+    def fit(self, x, y=None):
+        return self
+
+    def transform(self, x, y=None):
+        age_bins = [0, 12, 18, 25, 30, 50, float('inf')]
+        age_labels = ['Age_0-12', 'Age_13-17', 'Age_18-25', 'Age_26-30', 'Age_31-50', 'Age_51+']
+        x['AgeGroup'] = pd.cut(x['Age'], bins=age_bins, labels=age_labels, right=False)
+        del x['PassengerId']
+        del x['Cabin']
+        del x['Name']
+        return x
+
 
 numeric_pipeline = Pipeline([
     ('imputer', SimpleImputer(strategy='median'))
@@ -34,9 +52,27 @@ preprocessing_pipeline = ColumnTransformer(transformers=[
 ])
 
 full_pipeline = Pipeline([
+    ('cleaner', GeneralCLeaner()),
     ('preprocessing', preprocessing_pipeline),
     ('classifier', RandomForestClassifier())
 ])
+
+
+def print_dataset_before_modelling(data):
+
+    x = train.copy()
+    y = x.pop('Transported')
+
+    cleaner = GeneralCLeaner()
+    x_cleaned = cleaner.transform(x)
+    x_processed = full_pipeline.named_steps['preprocessing'].fit_transform(x_cleaned)
+
+    cat_encoder = full_pipeline.named_steps['preprocessing'].named_transformers_['categorical']['encoder']
+    cat_feature_names = list(cat_encoder.get_feature_names_out(input_features=cat_feats))
+    all_feature_names = num_feats + cat_feature_names
+
+    x_processed_df = pd.DataFrame(x_processed, columns=all_feature_names)
+    print(x_processed_df)
 
 
 def fit_model(train_data):
@@ -55,7 +91,8 @@ def save_predictions_to_csv(model, x_test, output_file):
     y_test.to_csv(output_file, index=False)
 
 
+# print_dataset_before_modelling(train)
 # fit_model(train)
-# save_predictions_to_csv(full_pipeline, test, 'predictions/output_2_baseline_pipe.csv')
+# save_predictions_to_csv(full_pipeline, test, 'predictions/output_3_features.csv')
 
 

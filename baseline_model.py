@@ -82,3 +82,4 @@ def get_baseline_predictions(data_train, data_test):
 # get_baseline_predictions(train, test)
 
 
+print(train.info())

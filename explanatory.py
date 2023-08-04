@@ -95,3 +95,20 @@ print(train[qual_feats].head())
 # We can extract the deck, number and side from the cabin feature.
 # We could extract the surname from the name feature to identify families.
 
+# FEATURE ENGINEERING
+
+age_bins = [0, 12, 18, 25, 30, 50, float('inf')]
+age_labels = ['Age_0-12', 'Age_13-17', 'Age_18-25', 'Age_26-30', 'Age_31-50', 'Age_51+']
+train['Age_group'] = pd.cut(train['Age'], bins=age_bins, labels=age_labels, right=False)
+
+
+def plot_age_bins():
+    plt.figure(figsize=(10, 4))
+    g = sns.countplot(data=train, x='Age_group', hue='Transported',
+                      order=['Age_0-12', 'Age_13-17', 'Age_18-25', 'Age_26-30', 'Age_31-50', 'Age_51+'])
+    plt.title('Age group distribution')
+    plt.show()
+
+
+# plot_age_bins()
+
