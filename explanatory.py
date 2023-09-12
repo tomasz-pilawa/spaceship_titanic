@@ -8,20 +8,20 @@ pd.set_option('display.width', None)
 train = pd.read_csv('train.csv')
 test = pd.read_csv('test.csv')
 
-print(train.shape)
-print(test.shape)
-
-print(train.isna().sum())
-print(test.isna().sum())
-
+# print(train.shape)
+# print(test.shape)
+#
+# print(train.isna().sum())
+# print(test.isna().sum())
+#
 # print(train.nunique())
 # print(train.dtypes)
-
+#
 # plt.figure(figsize=(6, 6))
 # train['Transported'].value_counts().plot.pie(autopct='%1.1f%%', shadow=True,
 #                                              textprops={'fontsize': 16}).set_title("Target distribution")
 # plt.show()
-
+#
 # plt.figure(figsize=(10, 4))
 # sns.histplot(data=train, x='Age', hue='Transported', binwidth=1, kde=True)
 # plt.title('Age distribution')
@@ -89,7 +89,7 @@ def plot_cat_feats():
 # We might consider dropping the VIP column to prevent overfitting.
 
 qual_feats = ['PassengerId', 'Cabin', 'Name']
-print(train[qual_feats].head())
+# print(train[qual_feats].head())
 
 # We can extract the group and group size from the PassengerId feature.
 # We can extract the deck, number and side from the cabin feature.
@@ -109,6 +109,39 @@ def plot_age_bins():
     plt.title('Age group distribution')
     plt.show()
 
-
 # plot_age_bins()
+
+
+# FURTHER EXPLANATORY TESTING:
+
+
+train[['GroupId', 'NumberInGroup']] = train['PassengerId'].str.split('_', expand=True)
+# train['NumberInGroup'] = train['NumberInGroup'].str.lstrip('0')
+
+train[['Deck', 'Seat', 'ShipSide']] = train['Cabin'].str.split('/', expand=True)
+
+# df[cols] = df[cols].replace("np.nan", np.nan)
+
+# for x in ['GroupId', 'NumberInGroup', 'Deck', 'Seat', 'ShipSide']:
+#     print(x)
+#     print(train[x].dtype)
+#     print(train[x].nunique())
+#     print(train[x].unique())
+#     print(round(train[x].isna().sum()))
+
+
+print(train['PassId'].value_counts())
+# print(train[train['GroupSize'].isin(['8', '7', '6', '5', '4', '3'])])
+
+# train['GroupSize'] = pd.Categorical(train['GroupSize'], categories=train['GroupSize'].unique(), ordered=True)
+
+print(train.head(20))
+# print(train.columns)
+# print(train.dtypes)
+# print(round(train.isna().sum()/train.shape[0], 2))
+# print(train.select_dtypes(include='object').nunique())
+
+
+
+
 

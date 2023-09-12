@@ -22,7 +22,7 @@ cat_feats = ['HomePlanet', 'CryoSleep', 'Destination', 'VIP', 'AgeGroup']
 num_feats = ['RoomService', 'FoodCourt', 'ShoppingMall', 'Spa', 'VRDeck']
 
 
-class GeneralCLeaner(BaseEstimator, TransformerMixin):
+class GeneralCleaner(BaseEstimator, TransformerMixin):
 
     def fit(self, x, y=None):
         return self
@@ -52,27 +52,10 @@ preprocessing_pipeline = ColumnTransformer(transformers=[
 ])
 
 full_pipeline = Pipeline([
-    ('cleaner', GeneralCLeaner()),
+    ('cleaner', GeneralCleaner()),
     ('preprocessing', preprocessing_pipeline),
     ('classifier', RandomForestClassifier())
 ])
-
-
-def print_dataset_before_modelling(data):
-
-    x = train.copy()
-    y = x.pop('Transported')
-
-    cleaner = GeneralCLeaner()
-    x_cleaned = cleaner.transform(x)
-    x_processed = full_pipeline.named_steps['preprocessing'].fit_transform(x_cleaned)
-
-    cat_encoder = full_pipeline.named_steps['preprocessing'].named_transformers_['categorical']['encoder']
-    cat_feature_names = list(cat_encoder.get_feature_names_out(input_features=cat_feats))
-    all_feature_names = num_feats + cat_feature_names
-
-    x_processed_df = pd.DataFrame(x_processed, columns=all_feature_names)
-    print(x_processed_df)
 
 
 def fit_model(train_data):
@@ -88,10 +71,10 @@ def fit_model(train_data):
 def save_predictions_to_csv(model, x_test, output_file):
     y_test = pd.DataFrame({'PassengerId': x_test['PassengerId']})
     y_test['Transported'] = model.predict(x_test)
-    y_test.to_csv(output_file, index=False)
+    print(y_test)
+    # y_test.to_csv(output_file, index=False)
 
 
-# print_dataset_before_modelling(train)
 # fit_model(train)
 # save_predictions_to_csv(full_pipeline, test, 'predictions/output_3_features.csv')
 
