@@ -115,31 +115,43 @@ def plot_age_bins():
 # FURTHER EXPLANATORY TESTING:
 
 
-train[['GroupId', 'NumberInGroup']] = train['PassengerId'].str.split('_', expand=True)
-# train['NumberInGroup'] = train['NumberInGroup'].str.lstrip('0')
+df = train.copy()
 
-train[['Deck', 'Seat', 'ShipSide']] = train['Cabin'].str.split('/', expand=True)
+df[['Group', 'Member']] = df['PassengerId'].str.split('_', expand=True)
+df[['Deck', 'Seat', 'ShipSide']] = df['Cabin'].str.split('/', expand=True)
 
-# df[cols] = df[cols].replace("np.nan", np.nan)
+group_count = df.groupby("Group")["Member"].count()
+gc = df['Group'].value_counts().sort_index()
+# print(group_count.equals(gc))
 
-# for x in ['GroupId', 'NumberInGroup', 'Deck', 'Seat', 'ShipSide']:
-#     print(x)
-#     print(train[x].dtype)
-#     print(train[x].nunique())
-#     print(train[x].unique())
-#     print(round(train[x].isna().sum()))
+df['TravellingSolo'] = df['Group'].apply(lambda x: x not in set(gc[gc > 1].index))
+df['GroupSize'] = df.groupby('Group')['Member'].transform('count')
 
 
-print(train['PassId'].value_counts())
-# print(train[train['GroupSize'].isin(['8', '7', '6', '5', '4', '3'])])
+def plot_groups():
+    plt.figure(figsize=(15, 6))
 
-# train['GroupSize'] = pd.Categorical(train['GroupSize'], categories=train['GroupSize'].unique(), ordered=True)
+    plt.subplot(1, 2, 1)
+    sns.countplot(x="GroupSize", hue="Transported", data=df, palette="Set2")
+    plt.title("Group_Size vs Transported")
 
-print(train.head(20))
-# print(train.columns)
-# print(train.dtypes)
-# print(round(train.isna().sum()/train.shape[0], 2))
-# print(train.select_dtypes(include='object').nunique())
+    plt.subplot(1, 2, 2)
+    sns.countplot(x="TravellingSolo", hue="Transported", data=df, palette="Set2")
+    plt.title("Travelling Solo vs Transported")
+
+    plt.tight_layout()
+    plt.show()
+
+
+# plot_groups()
+
+
+print(df.head(20))
+
+
+
+
+
 
 
 

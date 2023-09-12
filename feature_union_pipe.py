@@ -27,9 +27,24 @@ class GeneralCleaner(BaseEstimator, TransformerMixin):
         age_bins = [0, 12, 18, 25, 30, 50, float('inf')]
         age_labels = ['Age_0-12', 'Age_13-17', 'Age_18-25', 'Age_26-30', 'Age_31-50', 'Age_51+']
         x['AgeGroup'] = pd.cut(x['Age'], bins=age_bins, labels=age_labels, right=False)
+
+        x[['Group', 'Member']] = x['PassengerId'].str.split('_', expand=True)
+        x[['Deck', 'Seat', 'ShipSide']] = x['Cabin'].str.split('/', expand=True)
+        gc = x['Group'].value_counts().sort_index()
+        x['TravellingSolo'] = x['Group'].apply(lambda fu: fu not in set(gc[gc > 1].index))
+        x['GroupSize'] = x.groupby('Group')['Member'].transform('count')
+
+        del x['Age']
         del x['PassengerId']
         del x['Cabin']
         del x['Name']
+
+        del x['Group']
+        del x['Member']
+        del x['Deck']
+        del x['Seat']
+        del x['ShipSide']
+
         return x
 
 
@@ -189,7 +204,7 @@ def save_predictions_to_csv(model, x_test, output_file):
 
 
 fit_model(train)
-# save_predictions_to_csv(full_pipe, test, 'predictions/output_4_feature_union_basic.csv')
+# save_predictions_to_csv(full_pipe, test, 'predictions/output_5_groups.csv')
 
 
 
