@@ -109,6 +109,7 @@ def plot_age_bins():
     plt.title('Age group distribution')
     plt.show()
 
+
 # plot_age_bins()
 
 
@@ -118,25 +119,27 @@ def plot_age_bins():
 df = train.copy()
 
 df[['Group', 'Member']] = df['PassengerId'].str.split('_', expand=True)
-df[['Deck', 'Seat', 'ShipSide']] = df['Cabin'].str.split('/', expand=True)
+df[['Cabin_Deck', 'Cabin_Number', 'Cabin_Side']] = df['Cabin'].str.split('/', expand=True)
 
 group_count = df.groupby("Group")["Member"].count()
 gc = df['Group'].value_counts().sort_index()
 # print(group_count.equals(gc))
 
-df['TravellingSolo'] = df['Group'].apply(lambda x: x not in set(gc[gc > 1].index))
-df['GroupSize'] = df.groupby('Group')['Member'].transform('count')
+df['Travelling_Solo'] = df['Group'].apply(lambda x: x not in set(gc[gc > 1].index))
+df['Group_Size'] = df.groupby('Group')['Member'].transform('count')
+df['Cabin_Number'].fillna(df['Cabin_Number'].median(), inplace=True)
+df['Cabin_Number'] = df['Cabin_Number'].astype(int)
 
 
 def plot_groups():
     plt.figure(figsize=(15, 6))
 
     plt.subplot(1, 2, 1)
-    sns.countplot(x="GroupSize", hue="Transported", data=df, palette="Set2")
-    plt.title("Group_Size vs Transported")
+    sns.countplot(x="Group_Size", hue="Transported", data=df, palette="Set2")
+    plt.title("Group Size vs Transported")
 
     plt.subplot(1, 2, 2)
-    sns.countplot(x="TravellingSolo", hue="Transported", data=df, palette="Set2")
+    sns.countplot(x="Travelling_Solo", hue="Transported", data=df, palette="Set2")
     plt.title("Travelling Solo vs Transported")
 
     plt.tight_layout()
@@ -146,14 +149,44 @@ def plot_groups():
 # plot_groups()
 
 
+def plot_cabin():
+    plt.figure(figsize=(15, 6))
+    plt.subplot(1, 2, 1)
+    sns.countplot(data=df, x='Cabin_Deck', hue='Transported', palette='Set2',
+                  order=["A", "B", "C", "D", "E", "F", "G", "T"])
+    plt.title("Cabin Deck Distribution")
+
+    plt.subplot(1, 2, 2)
+    sns.countplot(data=df, x='Cabin_Side', hue='Transported', palette='Set2')
+    plt.title("Cabin Side Distribution")
+    # plt.tight_layout()
+    plt.show()
+
+    plt.figure(figsize=(15, 6))
+    sns.histplot(data=df, x='Cabin_Number', hue='Transported', palette='Set2')
+    plt.title('Cabin Number Distribution')
+    plt.xticks(list(range(0, 1900, 300)))
+    for position in [300, 600, 900, 1200, 1500]:
+        plt.vlines(position, ymin=0, ymax=550, color="black")
+
+    plt.show()
+
+
+# plot_cabin()
+
+cbins = [0, 300, 600, 900, 1200, 1500, float('inf')]
+clabels = ['Cabin_Region1', 'Cabin_Region2', 'Cabin_Region3', 'Cabin_Region4', 'Cabin_Region5', 'Cabin_Region6']
+
+df['Cabin_Region'] = pd.cut(df['Cabin_Number'], bins=cbins, labels=clabels, right=False)
+
+
+def plot_cabin_region():
+    plt.figure(figsize=(20, 25))
+    sns.countplot(x="Cabin_Region", hue="Transported", data=df, palette="Set2")
+    plt.title("Cabin_Region Distribution")
+    plt.show()
+
+
+# plot_cabin_region()
+
 print(df.head(20))
-
-
-
-
-
-
-
-
-
-

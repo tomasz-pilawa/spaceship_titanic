@@ -29,21 +29,24 @@ class GeneralCleaner(BaseEstimator, TransformerMixin):
         x['AgeGroup'] = pd.cut(x['Age'], bins=age_bins, labels=age_labels, right=False)
 
         x[['Group', 'Member']] = x['PassengerId'].str.split('_', expand=True)
-        x[['Deck', 'Seat', 'ShipSide']] = x['Cabin'].str.split('/', expand=True)
         gc = x['Group'].value_counts().sort_index()
         x['TravellingSolo'] = x['Group'].apply(lambda fu: fu not in set(gc[gc > 1].index))
         x['GroupSize'] = x.groupby('Group')['Member'].transform('count')
 
+        x[['Cabin_Deck', 'Cabin_Number', 'Cabin_Side']] = x['Cabin'].str.split('/', expand=True)
+        x['Cabin_Number'].fillna(x['Cabin_Number'].median(), inplace=True)
+        x['Cabin_Number'] = x['Cabin_Number'].astype(int)
+        cbins = [0, 300, 600, 900, 1200, 1500, float('inf')]
+        clabels = ['Region1', 'Region2', 'Region3', 'Region4', 'Region5', 'Region6']
+        x['Cabin'] = pd.cut(x['Cabin_Number'], bins=cbins, labels=clabels, right=False)
+
         del x['Age']
         del x['PassengerId']
-        del x['Cabin']
         del x['Name']
 
         del x['Group']
         del x['Member']
-        del x['Deck']
-        del x['Seat']
-        del x['ShipSide']
+        del x['Cabin_Number']
 
         return x
 
@@ -204,7 +207,7 @@ def save_predictions_to_csv(model, x_test, output_file):
 
 
 fit_model(train)
-# save_predictions_to_csv(full_pipe, test, 'predictions/output_5_groups.csv')
+# save_predictions_to_csv(full_pipe, test, 'predictions/output_6_cabins.csv')
 
 
 
