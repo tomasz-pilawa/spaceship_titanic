@@ -24,9 +24,8 @@ class GeneralCleaner(BaseEstimator, TransformerMixin):
         return self
 
     def transform(self, x, y=None):
-        age_bins = [0, 12, 18, 25, 30, 50, float('inf')]
-        age_labels = ['Age_0-12', 'Age_13-17', 'Age_18-25', 'Age_26-30', 'Age_31-50', 'Age_51+']
-        x['AgeGroup'] = pd.cut(x['Age'], bins=age_bins, labels=age_labels, right=False)
+        x['Age_Group'] = pd.cut(x['Age'], bins=[0, 12, 18, 25, 30, 50, float('inf')], right=False,
+                                labels=['Age_0-12', 'Age_13-17', 'Age_18-25', 'Age_26-30', 'Age_31-50', 'Age_51+'])
 
         x[['Group', 'Member']] = x['PassengerId'].str.split('_', expand=True)
         gc = x['Group'].value_counts().sort_index()
@@ -36,9 +35,18 @@ class GeneralCleaner(BaseEstimator, TransformerMixin):
         x[['Cabin_Deck', 'Cabin_Number', 'Cabin_Side']] = x['Cabin'].str.split('/', expand=True)
         x['Cabin_Number'].fillna(x['Cabin_Number'].median(), inplace=True)
         x['Cabin_Number'] = x['Cabin_Number'].astype(int)
-        cbins = [0, 300, 600, 900, 1200, 1500, float('inf')]
-        clabels = ['Region1', 'Region2', 'Region3', 'Region4', 'Region5', 'Region6']
-        x['Cabin'] = pd.cut(x['Cabin_Number'], bins=cbins, labels=clabels, right=False)
+
+        x['Cabin'] = pd.cut(x['Cabin_Number'], bins=[0, 300, 600, 900, 1200, 1500, float('inf')],
+                            labels=['Region1', 'Region2', 'Region3', 'Region4', 'Region5', 'Region6'], right=False)
+
+        x["Total_Expenditure"] = x[["RoomService", "FoodCourt", "ShoppingMall", "Spa", "VRDeck"]].sum(axis=1)
+        x["No_Spending"] = (x["Total_Expenditure"] == 0)
+
+        exp_mean = round(x["Total_Expenditure"].mean(), 2)
+        exp_median = x["Total_Expenditure"].median()
+        x['Expenditure_Category'] = pd.cut(x['Total_Expenditure'],
+                                           bins=[-1, 0, exp_median, exp_mean, float('inf')],
+                                           labels=['No_Expense', 'Low_Expense', 'Medium_Expense', 'High_Expense'])
 
         del x['Age']
         del x['PassengerId']
@@ -156,13 +164,18 @@ class FeatureUnionCustom(BaseEstimator, TransformerMixin):
         return x_transformed
 
 
-# base_cat_pipe = Pipeline(steps=[('cleaner', GeneralCleaner()),
-#                                 ('cat_selector', FeatureSelector(feature_type='category')),
-#                                 ('imputer', CustomImputer(strategy='most_frequent')),
-#                                 ('encoder', CustomDummify()),
-#                                 ('scaler', CustomScaler()),
-#                                 ('model', RandomForestClassifier())
-#                                 ])
+# class NumericTransformer(BaseEstimator, TransformerMixin):
+#     def __init__(self):
+#         self.columns = []
+#
+#     def fit(self, x, y=None):
+#         return self
+#
+#     def transform(self, x, y=None):
+#         cols = ['RoomService', 'FoodCourt', 'ShoppingMall', 'Spa', 'VRDeck', 'Total Expenditure']
+#         for col in cols:
+#             x[col] = np.log1p(x[col])
+
 
 cat_pipe = Pipeline(steps=[('cat_selector', FeatureSelector(feature_type='category')),
                            ('imputer', CustomImputer(strategy='most_frequent')),
@@ -182,7 +195,6 @@ full_pipe = Pipeline(steps=[('cleaner', GeneralCleaner()),
                             ('scaler', CustomScaler()),
                             ('model', RandomForestClassifier())
                             ])
-
 
 # TESTING THE PIPE DF OUTPUT - COMMENT 'model' IN full_pipe
 # df = full_pipe.fit_transform(train)
@@ -207,7 +219,4 @@ def save_predictions_to_csv(model, x_test, output_file):
 
 
 fit_model(train)
-# save_predictions_to_csv(full_pipe, test, 'predictions/output_6_cabins.csv')
-
-
-
+save_predictions_to_csv(full_pipe, test, 'predictions/output_7_total_exp.csv')

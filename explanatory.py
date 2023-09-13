@@ -189,4 +189,41 @@ def plot_cabin_region():
 
 # plot_cabin_region()
 
+df["Total_Expenditure"] = df[["RoomService", "FoodCourt", "ShoppingMall", "Spa", "VRDeck"]].sum(axis=1)
+df["No_Spending"] = (df["Total_Expenditure"] == 0)
+
+
+def plot_total_exp():
+    plt.figure(figsize=(15, 6))
+    sns.histplot(data=df, x='Total_Expenditure', hue='Transported', palette="Set2", bins=200)
+    plt.ylim(0, 400)
+    plt.xlim(0, 10000)
+    plt.title('Total Expenditure Distribution')
+    plt.show()
+
+
+# plot_total_exp()
+
+exp_mean = round(df["Total_Expenditure"].mean(), 2)
+exp_median = df["Total_Expenditure"].median()
+# print(exp_mean, exp_median)
+
+df['Expenditure_Category'] = pd.cut(df['Total_Expenditure'],
+                                    bins=[-1, 0, exp_median, exp_mean, float('inf')],
+                                    labels=['No_Expense', 'Low_Expense', 'Medium_Expense', 'High_Expense'])
+
+
+def plot_expenditure_cats():
+    plt.figure(figsize=(15, 6))
+    plt.subplot(1, 2, 1)
+    sns.countplot(data=df, x='No_Spending', hue='Transported', palette='Set2')
+    plt.title('No Spending Distribution')
+    plt.subplot(1, 2, 2)
+    sns.countplot(data=df, x='Expenditure_Category', hue='Transported', palette='Set2')
+    plt.title('No Spending Distribution')
+    plt.show()
+
+
+# plot_expenditure_cats()
+
 print(df.head(20))
