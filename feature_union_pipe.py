@@ -164,17 +164,22 @@ class FeatureUnionCustom(BaseEstimator, TransformerMixin):
         return x_transformed
 
 
-# class NumericTransformer(BaseEstimator, TransformerMixin):
-#     def __init__(self):
-#         self.columns = []
-#
-#     def fit(self, x, y=None):
-#         return self
-#
-#     def transform(self, x, y=None):
-#         cols = ['RoomService', 'FoodCourt', 'ShoppingMall', 'Spa', 'VRDeck', 'Total Expenditure']
-#         for col in cols:
-#             x[col] = np.log1p(x[col])
+class NumericTransformer(BaseEstimator, TransformerMixin):
+    def __init__(self):
+        self.columns = []
+
+    def fit(self, x, y=None):
+        return self
+
+    def transform(self, x, y=None):
+        cols = ['RoomService', 'FoodCourt', 'ShoppingMall', 'Spa', 'VRDeck', 'Total_Expenditure']
+        for col in cols:
+            x[col] = np.log1p(x[col])
+        self.columns = x.columns
+        return x
+
+    def get_features_name(self):
+        return list(self.columns)
 
 
 cat_pipe = Pipeline(steps=[('cat_selector', FeatureSelector(feature_type='category')),
@@ -184,6 +189,7 @@ cat_pipe = Pipeline(steps=[('cat_selector', FeatureSelector(feature_type='catego
 
 num_pipe = Pipeline(steps=[('num_selector', FeatureSelector(feature_type='numeric')),
                            ('imputer', CustomImputer(strategy='median')),
+                           ('num_transformer', NumericTransformer())
                            ])
 
 preprocessing = FeatureUnionCustom([('categorical', cat_pipe),
@@ -219,4 +225,4 @@ def save_predictions_to_csv(model, x_test, output_file):
 
 
 fit_model(train)
-save_predictions_to_csv(full_pipe, test, 'predictions/output_7_total_exp.csv')
+# save_predictions_to_csv(full_pipe, test, 'predictions/output_8_num_transormed.csv')

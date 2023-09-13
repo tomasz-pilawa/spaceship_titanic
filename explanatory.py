@@ -226,4 +226,24 @@ def plot_expenditure_cats():
 
 # plot_expenditure_cats()
 
+
+def visualise_num_transformed():
+    cols = ['RoomService', 'FoodCourt', 'ShoppingMall', 'Spa', 'VRDeck', 'Total_Expenditure']
+
+    for col in cols:
+        df[col] = np.log1p(df[col])
+
+    x = 1
+    plt.figure(figsize=(15, 25))
+    for i in cols:
+        plt.subplot(6, 2, x)
+        sns.histplot(data=df, x=i, color="green")
+        plt.ylim(0, 0.2)
+        plt.title(f"{i} Distribution")
+        x += 1
+    plt.show()
+
+
+# visualise_num_transformed()
+
 print(df.head(20))
