@@ -7,10 +7,19 @@ from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import OneHotEncoder, LabelEncoder, OrdinalEncoder, StandardScaler, RobustScaler
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline, FeatureUnion
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.metrics import accuracy_score
 from sklearn.base import BaseEstimator, TransformerMixin
+
+from sklearn.svm import SVC
+from sklearn.naive_bayes import GaussianNB
+from sklearn.linear_model import LogisticRegression
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier, AdaBoostClassifier, StackingClassifier
+from xgboost import XGBClassifier
+from catboost import CatBoostClassifier
+from lightgbm import LGBMClassifier
 
 pd.set_option('display.width', None)
 
@@ -146,7 +155,7 @@ class CustomScaler(BaseEstimator, TransformerMixin):
 class FeatureUnionCustom(BaseEstimator, TransformerMixin):
     def __init__(self, transformer_list, verbose=False):
         self.transformer_list = transformer_list
-        # self.verbose = verbose
+        self.verbose = verbose
         self.feature_union = FeatureUnion(transformer_list)
 
     def fit(self, x, y=None):
@@ -202,6 +211,7 @@ full_pipe = Pipeline(steps=[('cleaner', GeneralCleaner()),
                             ('model', RandomForestClassifier())
                             ])
 
+
 # TESTING THE PIPE DF OUTPUT - COMMENT 'model' IN full_pipe
 # df = full_pipe.fit_transform(train)
 # print(df)
@@ -224,5 +234,39 @@ def save_predictions_to_csv(model, x_test, output_file):
     y_test.to_csv(output_file, index=False)
 
 
-fit_model(train)
-# save_predictions_to_csv(full_pipe, test, 'predictions/output_8_num_transormed.csv')
+# fit_model(train)
+# save_predictions_to_csv(full_pipe, test, 'predictions/output_8_num_transformed.csv')
+
+
+def grid_search(data, pipe, param_grid):
+    grid = GridSearchCV(estimator=pipe, param_grid=param_grid,
+                        cv=5, scoring='accuracy', n_jobs=-1, return_train_score=False)
+
+    pd.options.mode.chained_assignment = None
+
+    x = data.copy()
+    y = x.pop('Transported')
+    grid = grid.fit(x, y)
+
+    pd.options.mode.chained_assignment = 'warn'
+
+    result = pd.DataFrame(grid.cv_results_).sort_values(by='mean_test_score', ascending=False)
+
+    return result, grid
+
+
+models_initial = [RandomForestClassifier(), GradientBoostingClassifier(), AdaBoostClassifier(),
+                  SVC(), GaussianNB(), LogisticRegression(), KNeighborsClassifier(), DecisionTreeClassifier(),
+                  XGBClassifier(), CatBoostClassifier(), LGBMClassifier()]
+
+models_final = [LGBMClassifier(), RandomForestClassifier(), XGBClassifier(), GradientBoostingClassifier()]
+
+params = {'model': models_final}
+results, fitted_grid = grid_search(train, full_pipe, params)
+
+print(results)
+# print(fitted_grid.best_params_)
+# print(fitted_grid.best_estimator_)
+
+best_model = fitted_grid.best_estimator_
+# save_predictions_to_csv(best_model, test, 'predictions/output_9_grid_model.csv')
