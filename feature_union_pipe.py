@@ -261,12 +261,35 @@ models_initial = [RandomForestClassifier(), GradientBoostingClassifier(), AdaBoo
 
 models_final = [LGBMClassifier(), RandomForestClassifier(), XGBClassifier(), GradientBoostingClassifier()]
 
-params = {'model': models_final}
+params = [
+    {
+        'model': [LGBMClassifier()],
+        'model__n_estimators': [100, 200, 300],
+        'model__learning_rate': [0.01, 0.1, 0.2],
+    },
+    {
+        'model': [RandomForestClassifier()],
+        'model__n_estimators': [100, 200, 300],
+        'model__max_depth': [None, 10, 20],
+    },
+    {
+        'model': [XGBClassifier()],
+        'model__n_estimators': [100, 200, 300],
+        'model__learning_rate': [0.01, 0.1, 0.2],
+    },
+    {
+        'model': [GradientBoostingClassifier()],
+        'model__n_estimators': [100, 200, 300],
+        'model__learning_rate': [0.01, 0.1, 0.2],
+    }
+]
+
+
 results, fitted_grid = grid_search(train, full_pipe, params)
 
 print(results)
-# print(fitted_grid.best_params_)
-# print(fitted_grid.best_estimator_)
+print(fitted_grid.best_params_)
+print(fitted_grid.best_estimator_)
 
 best_model = fitted_grid.best_estimator_
-# save_predictions_to_csv(best_model, test, 'predictions/output_9_grid_model.csv')
+# save_predictions_to_csv(best_model, test, 'predictions/output_10_model_hyperparameters.csv')
