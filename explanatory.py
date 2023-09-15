@@ -246,4 +246,20 @@ def visualise_num_transformed():
 
 # visualise_num_transformed()
 
+df['Amenities_Used'] = df[['RoomService', 'Spa', 'VRDeck', 'FoodCourt', 'ShoppingMall']].gt(0).sum(axis=1)
+df['Spending_Service'] = df[['RoomService', 'Spa', 'VRDeck']].sum(axis=1)
+df['Spending_Shopping'] = df[['FoodCourt', 'ShoppingMall']].sum(axis=1)
+df['Surname'] = df['Name'].str.split().str[-1]
+df['Family_Size'] = df.groupby('Surname')['Surname'].transform('count')
+
+
+def plot_families():
+    plt.figure(figsize=(16, 9))
+    sns.countplot(data=df, x='Family_Size', hue='Transported', palette="Set2")
+    plt.title('Family Size Distribution')
+    plt.show()
+
+
+# plot_families()
+
 print(df.head(20))

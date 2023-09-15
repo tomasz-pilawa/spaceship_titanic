@@ -39,7 +39,7 @@ class GeneralCleaner(BaseEstimator, TransformerMixin):
         x[['Group', 'Member']] = x['PassengerId'].str.split('_', expand=True)
         gc = x['Group'].value_counts().sort_index()
         x['TravellingSolo'] = x['Group'].apply(lambda fu: fu not in set(gc[gc > 1].index))
-        x['GroupSize'] = x.groupby('Group')['Member'].transform('count')
+        x['GroupSize'] = x.groupby('Group')['Member'].transform('count').astype(float)
 
         x[['Cabin_Deck', 'Cabin_Number', 'Cabin_Side']] = x['Cabin'].str.split('/', expand=True)
         x['Cabin_Number'].fillna(x['Cabin_Number'].median(), inplace=True)
@@ -57,6 +57,12 @@ class GeneralCleaner(BaseEstimator, TransformerMixin):
                                            bins=[-1, 0, exp_median, exp_mean, float('inf')],
                                            labels=['No_Expense', 'Low_Expense', 'Medium_Expense', 'High_Expense'])
 
+        x['Amenities_Used'] = x[['RoomService', 'Spa', 'VRDeck', 'FoodCourt', 'ShoppingMall']].gt(0).sum(axis=1).astype(float)
+        x['Spending_Service'] = x[['RoomService', 'Spa', 'VRDeck']].sum(axis=1)
+        x['Spending_Shopping'] = x[['FoodCourt', 'ShoppingMall']].sum(axis=1)
+        x['Surname'] = x['Name'].str.split().str[-1]
+        x['Family_Size'] = x.groupby('Surname')['Surname'].transform('count')
+
         del x['Age']
         del x['PassengerId']
         del x['Name']
@@ -64,6 +70,10 @@ class GeneralCleaner(BaseEstimator, TransformerMixin):
         del x['Group']
         del x['Member']
         del x['Cabin_Number']
+
+        del x['Surname']
+
+        # print(x.dtypes)
 
         return x
 
@@ -181,7 +191,8 @@ class NumericTransformer(BaseEstimator, TransformerMixin):
         return self
 
     def transform(self, x, y=None):
-        cols = ['RoomService', 'FoodCourt', 'ShoppingMall', 'Spa', 'VRDeck', 'Total_Expenditure']
+        cols = ['RoomService', 'FoodCourt', 'ShoppingMall', 'Spa', 'VRDeck', 'Total_Expenditure',
+                'Spending_Service', 'Spending_Shopping']
         for col in cols:
             x[col] = np.log1p(x[col])
         self.columns = x.columns
@@ -230,7 +241,7 @@ def fit_model(train_data):
 def save_predictions_to_csv(model, x_test, output_file):
     y_test = pd.DataFrame({'PassengerId': x_test['PassengerId']})
     y_test['Transported'] = model.predict(x_test)
-    print(y_test)
+    # print(y_test)
     y_test.to_csv(output_file, index=False)
 
 
@@ -271,16 +282,6 @@ params = [
         'model': [RandomForestClassifier()],
         'model__n_estimators': [100, 200, 300],
         'model__max_depth': [None, 10, 20],
-    },
-    {
-        'model': [XGBClassifier()],
-        'model__n_estimators': [100, 200, 300],
-        'model__learning_rate': [0.01, 0.1, 0.2],
-    },
-    {
-        'model': [GradientBoostingClassifier()],
-        'model__n_estimators': [100, 200, 300],
-        'model__learning_rate': [0.01, 0.1, 0.2],
     }
 ]
 
@@ -292,4 +293,4 @@ print(fitted_grid.best_params_)
 print(fitted_grid.best_estimator_)
 
 best_model = fitted_grid.best_estimator_
-# save_predictions_to_csv(best_model, test, 'predictions/output_10_model_hyperparameters.csv')
+# save_predictions_to_csv(best_model, test, 'predictions/output_11_new_features.csv')
