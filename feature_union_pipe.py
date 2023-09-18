@@ -22,12 +22,16 @@ from catboost import CatBoostClassifier
 from lightgbm import LGBMClassifier
 
 pd.set_option('display.width', None)
+pd.options.display.max_rows = None
 
 train = pd.read_csv('train.csv')
 test = pd.read_csv('test.csv')
 
 
 class GeneralCleaner(BaseEstimator, TransformerMixin):
+
+    def __init__(self, make_ordinals=False):
+        self.make_ordinals = make_ordinals
 
     def fit(self, x, y=None):
         return self
@@ -39,7 +43,7 @@ class GeneralCleaner(BaseEstimator, TransformerMixin):
         x[['Group', 'Member']] = x['PassengerId'].str.split('_', expand=True)
         gc = x['Group'].value_counts().sort_index()
         x['TravellingSolo'] = x['Group'].apply(lambda fu: fu not in set(gc[gc > 1].index))
-        x['GroupSize'] = x.groupby('Group')['Member'].transform('count').astype(float)
+        x['GroupSize'] = x.groupby('Group')['Member'].transform('count')
 
         x[['Cabin_Deck', 'Cabin_Number', 'Cabin_Side']] = x['Cabin'].str.split('/', expand=True)
         x['Cabin_Number'].fillna(x['Cabin_Number'].median(), inplace=True)
@@ -57,11 +61,20 @@ class GeneralCleaner(BaseEstimator, TransformerMixin):
                                            bins=[-1, 0, exp_median, exp_mean, float('inf')],
                                            labels=['No_Expense', 'Low_Expense', 'Medium_Expense', 'High_Expense'])
 
-        x['Amenities_Used'] = x[['RoomService', 'Spa', 'VRDeck', 'FoodCourt', 'ShoppingMall']].gt(0).sum(axis=1).astype(float)
+        x['Amenities_Used'] = x[['RoomService', 'Spa', 'VRDeck', 'FoodCourt', 'ShoppingMall']].gt(0).sum(axis=1).astype(
+            float)
         x['Spending_Service'] = x[['RoomService', 'Spa', 'VRDeck']].sum(axis=1)
         x['Spending_Shopping'] = x[['FoodCourt', 'ShoppingMall']].sum(axis=1)
         x['Surname'] = x['Name'].str.split().str[-1]
         x['Family_Size'] = x.groupby('Surname')['Surname'].transform('count')
+
+        if self.make_ordinals:
+            age_group_encoder = LabelEncoder()
+            exp_category_encoder = LabelEncoder()
+            cabin_encoder = LabelEncoder()
+            x['Age_Group'] = age_group_encoder.fit_transform(x['Age_Group'])
+            x['Expenditure_Category'] = exp_category_encoder.fit_transform(x['Expenditure_Category'])
+            x['Cabin'] = cabin_encoder.fit_transform(x['Cabin'])
 
         del x['Age']
         del x['PassengerId']
@@ -88,10 +101,10 @@ class FeatureSelector(BaseEstimator, TransformerMixin):
 
     def transform(self, x, y=None):
         if self.feature_type == 'numeric':
-            num_cols = x.columns[x.dtypes == float].tolist()
+            num_cols = x.select_dtypes(include=['float', 'int']).columns.tolist()
             return x[num_cols]
         elif self.feature_type == 'category':
-            cat_cols = x.columns[x.dtypes != float].tolist()
+            cat_cols = x.select_dtypes(exclude=['float', 'int']).columns.tolist()
             return x[cat_cols]
 
 
@@ -121,16 +134,17 @@ class CustomImputer(BaseEstimator, TransformerMixin):
 
 class CustomDummify(BaseEstimator, TransformerMixin):
 
-    def __init__(self):
+    def __init__(self, drop_first=False):
         self.x_train = None
         self.columns = []
+        self.drop_first = drop_first
 
     def fit(self, x, y=None):
-        self.x_train = pd.get_dummies(x)
+        self.x_train = pd.get_dummies(x, drop_first=self.drop_first)
         return self
 
     def transform(self, x, y=None):
-        x_encoded = pd.get_dummies(x)
+        x_encoded = pd.get_dummies(x, drop_first=self.drop_first)
         missing_cols = set(self.x_train.columns) - set(x_encoded.columns)
         for col in missing_cols:
             x_encoded[col] = 0
@@ -163,10 +177,15 @@ class CustomScaler(BaseEstimator, TransformerMixin):
 
 
 class FeatureUnionCustom(BaseEstimator, TransformerMixin):
-    def __init__(self, transformer_list, verbose=False):
+    def __init__(self, transformer_list, n_jobs=None, transformer_weights=None, verbose=False):
         self.transformer_list = transformer_list
+        self.n_jobs = n_jobs
+        self.transformer_weights = transformer_weights
         self.verbose = verbose
-        self.feature_union = FeatureUnion(transformer_list)
+        self.feature_union = FeatureUnion(transformer_list=self.transformer_list,
+                                          n_jobs=self.n_jobs,
+                                          transformer_weights=self.transformer_weights,
+                                          verbose=self.verbose)
 
     def fit(self, x, y=None):
         self.feature_union.fit(x)
@@ -181,6 +200,9 @@ class FeatureUnionCustom(BaseEstimator, TransformerMixin):
             columns += list(cols)
         x_transformed = pd.DataFrame(x_trf, index=x.index, columns=columns)
         return x_transformed
+
+    def get_params(self, deep=True):
+        return self.feature_union.get_params(deep=deep)
 
 
 class NumericTransformer(BaseEstimator, TransformerMixin):
@@ -275,13 +297,19 @@ models_final = [LGBMClassifier(), RandomForestClassifier(), XGBClassifier(), Gra
 params = [
     {
         'model': [LGBMClassifier()],
-        'model__n_estimators': [100, 200, 300],
-        'model__learning_rate': [0.01, 0.1, 0.2],
+        'model__n_estimators': [250, 300, 350, 500],
+        'model__learning_rate': [0.005, 0.01, 0.05],
+        'preprocessor__categorical__encoder__drop_first': [True, False],
+        'scaler__method': ['standard', 'robust'],
+        'cleaner__make_ordinals': [True, False]
     },
     {
         'model': [RandomForestClassifier()],
-        'model__n_estimators': [100, 200, 300],
-        'model__max_depth': [None, 10, 20],
+        'model__n_estimators': [150, 200, 250, 300],
+        'model__max_depth': [8, 10, 12, 15, 20],
+        'preprocessor__categorical__encoder__drop_first': [True, False],
+        'scaler__method': ['standard', 'robust'],
+        'cleaner__make_ordinals': [True, False]
     }
 ]
 
@@ -293,4 +321,5 @@ print(fitted_grid.best_params_)
 print(fitted_grid.best_estimator_)
 
 best_model = fitted_grid.best_estimator_
-# save_predictions_to_csv(best_model, test, 'predictions/output_11_new_features.csv')
+
+save_predictions_to_csv(best_model, test, 'predictions/output_13_hyperparameter_tuning.csv')
