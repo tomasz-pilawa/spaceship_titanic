@@ -262,4 +262,73 @@ def plot_families():
 
 # plot_families()
 
-print(df.head(20))
+# ADVANCED IMPUTATION ###############################
+
+# print(pd.crosstab(df['Group'], df['HomePlanet']))
+
+HP_bef = df['HomePlanet'].isna().sum()
+
+df['HomePlanet'] = df.groupby('Group')['HomePlanet'].transform(
+    lambda x: x.fillna(x.mode().iloc[0]) if not x.mode().empty else np.nan)
+
+# print('#HomePlanet missing values before:', HP_bef)
+# print('#HomePlanet missing values after:', df['HomePlanet'].isna().sum())
+
+
+def plot_cabin_deck_missing():
+
+    crosstab = pd.crosstab(df['Cabin_Deck'], df['HomePlanet'])
+    crosstab['Missing'] = df.groupby('Cabin_Deck')['HomePlanet'].apply(lambda x: x.isna().sum())
+    print(crosstab)
+    plt.figure(figsize=(8, 6))
+    sns.heatmap(crosstab, annot=True, fmt='d')
+    plt.title('Cross-Tabulation: Group vs HomePlanet')
+    plt.xlabel('HomePlanet')
+    plt.ylabel('Group')
+    plt.show()
+
+
+# plot_cabin_deck_missing()
+HP_bef = df['HomePlanet'].isna().sum()
+
+cabin_to_homeplanet = {'A': 'Europa', 'B': 'Europa', 'C': 'Europa', 'T': 'Europa', 'G': 'Earth'}
+df['HomePlanet'] = df['Cabin_Deck'].map(cabin_to_homeplanet).fillna(df['HomePlanet'])
+
+HP_after = df['HomePlanet'].isna().sum()
+
+# print('#HomePlanet missing values before:', HP_bef)
+# print('#HomePlanet missing values after:', HP_after)
+
+
+# print(pd.crosstab(df['Surname'], df['HomePlanet']))
+
+HP_bef = df['HomePlanet'].isna().sum()
+
+df['HomePlanet'] = df.groupby('Surname')['HomePlanet'].transform(
+    lambda x: x.fillna(x.mode().iloc[0]) if not x.mode().empty and not pd.isna(x.name) else x).fillna(df['HomePlanet'])
+
+# print('#HomePlanet missing values before:', HP_bef)
+# print('#HomePlanet missing values after:', df['HomePlanet'].isna().sum())
+
+
+def impute_home_planet(row):
+    # this one is a little bit arbitraty from the net - not sure if much better than simple imputation
+    if pd.isnull(row['HomePlanet']):
+        if row['Cabin_Deck'] == 'D':
+            return 'Mars'
+        else:
+            return 'Earth'
+    else:
+        return row['HomePlanet']
+
+
+# df['HomePlanet'] = df.apply(impute_home_planet, axis=1)
+
+# this is simpler, since earth is most common anyways, so with most frequent it will get filled
+# print(df.groupby('HomePlanet')['HomePlanet'].count())
+df.loc[(df['Cabin_Deck'] == 'D') & df['HomePlanet'].isna(), 'HomePlanet'] = 'Mars'
+
+# print('#HomePlanet missing values after:', df['HomePlanet'].isna().sum())
+
+# print(df.isna().sum())
+# # print(df.head(20))

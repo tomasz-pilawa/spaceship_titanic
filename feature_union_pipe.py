@@ -76,6 +76,20 @@ class GeneralCleaner(BaseEstimator, TransformerMixin):
             x['Expenditure_Category'] = exp_category_encoder.fit_transform(x['Expenditure_Category'])
             x['Cabin'] = cabin_encoder.fit_transform(x['Cabin'])
 
+        # Manual Imputation Parsed Here for Ease of Use
+
+        x['HomePlanet'] = x.groupby('Group')['HomePlanet'].transform(
+            lambda group: group.fillna(group.mode().iloc[0]) if not group.mode().empty else np.nan)
+
+        cabin_to_homeplanet = {'A': 'Europa', 'B': 'Europa', 'C': 'Europa', 'T': 'Europa', 'G': 'Earth'}
+        x['HomePlanet'] = x['Cabin_Deck'].map(cabin_to_homeplanet).fillna(x['HomePlanet'])
+
+        x['HomePlanet'] = x.groupby('Surname')['HomePlanet'].transform(
+            lambda g: g.fillna(g.mode().iloc[0]) if not g.mode().empty and not pd.isna(g.name) else g).fillna(
+            x['HomePlanet'])
+
+        x.loc[(x['Cabin_Deck'] == 'D') & x['HomePlanet'].isna(), 'HomePlanet'] = 'Mars'
+
         del x['Age']
         del x['PassengerId']
         del x['Name']
@@ -297,19 +311,29 @@ models_final = [LGBMClassifier(), RandomForestClassifier(), XGBClassifier(), Gra
 params = [
     {
         'model': [LGBMClassifier()],
-        'model__n_estimators': [250, 300, 350, 500],
-        'model__learning_rate': [0.005, 0.01, 0.05],
+        'model__n_estimators': [300, 500, 600],
+        'model__learning_rate': [0.01],
+        'model__num_leaves': [15, 17, 19],
+        'preprocessor__categorical__encoder__drop_first': [True],
+        'scaler__method': ['standard', 'robust'],
+        'cleaner__make_ordinals': [False]
+    },
+    {
+        'model': [RandomForestClassifier()],
+        'model__n_estimators': [200, 300, 500],
+        'model__max_depth': [10, 12],
+        'model__min_samples_split': [6, 7, 8],
         'preprocessor__categorical__encoder__drop_first': [True, False],
         'scaler__method': ['standard', 'robust'],
         'cleaner__make_ordinals': [True, False]
     },
     {
-        'model': [RandomForestClassifier()],
-        'model__n_estimators': [150, 200, 250, 300],
-        'model__max_depth': [8, 10, 12, 15, 20],
-        'preprocessor__categorical__encoder__drop_first': [True, False],
+        'model': [XGBClassifier()],
+        'model__n_estimators': [50, 100, 150],
+        'model__learning_rate': [0.3, 0.5, 1.0],
+        'cleaner__make_ordinals': [True, False],
         'scaler__method': ['standard', 'robust'],
-        'cleaner__make_ordinals': [True, False]
+        'preprocessor__categorical__encoder__drop_first': [True, False]
     }
 ]
 
@@ -318,8 +342,7 @@ results, fitted_grid = grid_search(train, full_pipe, params)
 
 print(results)
 print(fitted_grid.best_params_)
-print(fitted_grid.best_estimator_)
+# print(fitted_grid.best_estimator_)
 
 best_model = fitted_grid.best_estimator_
-
-save_predictions_to_csv(best_model, test, 'predictions/output_13_hyperparameter_tuning.csv')
+save_predictions_to_csv(best_model, test, 'predictions/output_14_advanced_imputation.csv')
