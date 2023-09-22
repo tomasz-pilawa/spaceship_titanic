@@ -4,8 +4,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 from sklearn.impute import SimpleImputer
-from sklearn.preprocessing import OneHotEncoder, LabelEncoder, OrdinalEncoder, StandardScaler, RobustScaler
-from sklearn.compose import ColumnTransformer
+from sklearn.preprocessing import LabelEncoder, OrdinalEncoder, StandardScaler, RobustScaler
 from sklearn.pipeline import Pipeline, FeatureUnion
 from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.metrics import accuracy_score
@@ -13,7 +12,7 @@ from sklearn.base import BaseEstimator, TransformerMixin
 
 from sklearn.svm import SVC
 from sklearn.naive_bayes import GaussianNB
-from sklearn.linear_model import LogisticRegression
+from sklearn.linear_model import LogisticRegression, LinearRegression
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier, AdaBoostClassifier, StackingClassifier
@@ -37,20 +36,13 @@ class GeneralCleaner(BaseEstimator, TransformerMixin):
         return self
 
     def transform(self, x, y=None):
-        x['Age_Group'] = pd.cut(x['Age'], bins=[0, 12, 18, 25, 30, 50, float('inf')], right=False,
-                                labels=['Age_0-12', 'Age_13-17', 'Age_18-25', 'Age_26-30', 'Age_31-50', 'Age_51+'])
 
         x[['Group', 'Member']] = x['PassengerId'].str.split('_', expand=True)
         gc = x['Group'].value_counts().sort_index()
-        x['TravellingSolo'] = x['Group'].apply(lambda fu: fu not in set(gc[gc > 1].index))
+        x['Travelling_Solo'] = x['Group'].apply(lambda fu: fu not in set(gc[gc > 1].index))
         x['GroupSize'] = x.groupby('Group')['Member'].transform('count')
 
         x[['Cabin_Deck', 'Cabin_Number', 'Cabin_Side']] = x['Cabin'].str.split('/', expand=True)
-        x['Cabin_Number'].fillna(x['Cabin_Number'].median(), inplace=True)
-        x['Cabin_Number'] = x['Cabin_Number'].astype(int)
-
-        x['Cabin'] = pd.cut(x['Cabin_Number'], bins=[0, 300, 600, 900, 1200, 1500, float('inf')],
-                            labels=['Region1', 'Region2', 'Region3', 'Region4', 'Region5', 'Region6'], right=False)
 
         x["Total_Expenditure"] = x[["RoomService", "FoodCourt", "ShoppingMall", "Spa", "VRDeck"]].sum(axis=1)
         x["No_Spending"] = (x["Total_Expenditure"] == 0)
@@ -66,15 +58,6 @@ class GeneralCleaner(BaseEstimator, TransformerMixin):
         x['Spending_Service'] = x[['RoomService', 'Spa', 'VRDeck']].sum(axis=1)
         x['Spending_Shopping'] = x[['FoodCourt', 'ShoppingMall']].sum(axis=1)
         x['Surname'] = x['Name'].str.split().str[-1]
-        x['Family_Size'] = x.groupby('Surname')['Surname'].transform('count')
-
-        if self.make_ordinals:
-            age_group_encoder = LabelEncoder()
-            exp_category_encoder = LabelEncoder()
-            cabin_encoder = LabelEncoder()
-            x['Age_Group'] = age_group_encoder.fit_transform(x['Age_Group'])
-            x['Expenditure_Category'] = exp_category_encoder.fit_transform(x['Expenditure_Category'])
-            x['Cabin'] = cabin_encoder.fit_transform(x['Cabin'])
 
         # Manual Imputation Parsed Here for Ease of Use
 
@@ -89,6 +72,57 @@ class GeneralCleaner(BaseEstimator, TransformerMixin):
             x['HomePlanet'])
 
         x.loc[(x['Cabin_Deck'] == 'D') & x['HomePlanet'].isna(), 'HomePlanet'] = 'Mars'
+
+        # x['Surname'] = x['Name'].str.split().str[-1]
+        x['Surname'] = x.groupby('Group')['Surname'].transform(
+            lambda t: t.fillna(t.mode()[0]) if not t.mode().empty else 'Unknown')
+
+        x['Family_Size'] = x.groupby('Surname')['Surname'].transform('count')
+        x.loc[x['Surname'] == 'Unknown', 'Surname'] = np.nan
+        x.loc[x['Family_Size'] > 100, 'Family_Size'] = 0
+
+        for n in ['Cabin_Deck', 'Cabin_Side']:
+            x[n] = x.groupby('Group')[n].transform(
+                lambda t: t.fillna(t.mode()[0]) if not t.mode().empty else np.nan)
+            x[n] = x.groupby(['HomePlanet', 'Destination', 'Travelling_Solo'])[n].transform(
+                lambda r: r.fillna(r.mode()[0]) if not r.mode().empty and not pd.isna(r.name) else r).fillna(x[n])
+
+        for deck in ['A', 'B', 'C', 'D', 'E', 'F', 'G']:
+            if x[(x['Cabin_Deck'] == deck) & (x['Cabin_Number'].isna())].shape[0] > 0:
+                X_CN = x.loc[~(x['Cabin_Number'].isna()) & (x['Cabin_Deck'] == deck), 'Group']
+                y_CN = x.loc[~(x['Cabin_Number'].isna()) & (x['Cabin_Deck'] == deck), 'Cabin_Number']
+                X_test_CN = x.loc[(x['Cabin_Number'].isna()) & (x['Cabin_Deck'] == deck), 'Group']
+
+                model_CN = LinearRegression()
+                model_CN.fit(X_CN.values.reshape(-1, 1), y_CN)
+                preds_CN = model_CN.predict(X_test_CN.values.reshape(-1, 1))
+                x.loc[(x['Cabin_Number'].isna()) & (x['Cabin_Deck'] == deck), 'Cabin_Number'] = preds_CN.astype(int)
+
+        x['Cabin_Number'].fillna(x['Cabin_Number'].median(), inplace=True)
+        x['Cabin_Number'] = x['Cabin_Number'].astype(int)
+        x.loc[x['Cabin_Number'] < 0, 'Cabin_Number'] = 0
+
+        x['Cabin'] = pd.cut(x['Cabin_Number'], bins=[0, 300, 600, 900, 1200, 1500, float('inf')],
+                    labels=['Region1', 'Region2', 'Region3', 'Region4', 'Region5', 'Region6'], right=False)
+
+        cabin_encoder = LabelEncoder()
+        x['Cabin'] = cabin_encoder.fit_transform(x['Cabin'])
+
+
+        x.loc[x['Age'].isna(), 'Age'] = \
+            x.groupby(['HomePlanet', 'No_Spending', 'Travelling_Solo', 'Cabin_Deck'])['Age'].transform(
+                lambda a: a.fillna(a.median()))[x.loc[x['Age'].isna(), 'Age'].index]
+
+        x['Age_Group'] = pd.cut(x['Age'], bins=[0, 12, 18, 25, 30, 50, float('inf')], right=False,
+                                labels=['Age_0-12', 'Age_13-17', 'Age_18-25', 'Age_26-30', 'Age_31-50', 'Age_51+'])
+
+        x['CryoSleep'] = x.groupby('No_Spending')['CryoSleep'].transform(lambda cs: cs.fillna(cs.mode()[0]))
+
+        if self.make_ordinals:
+            age_group_encoder = LabelEncoder()
+            exp_category_encoder = LabelEncoder()
+            x['Age_Group'] = age_group_encoder.fit_transform(x['Age_Group'])
+            x['Expenditure_Category'] = exp_category_encoder.fit_transform(x['Expenditure_Category'])
 
         del x['Age']
         del x['PassengerId']
@@ -259,7 +293,7 @@ full_pipe = Pipeline(steps=[('cleaner', GeneralCleaner()),
                             ])
 
 
-# TESTING THE PIPE DF OUTPUT - COMMENT 'model' IN full_pipe
+# TESTING THE PIPE DF OUTPUT - COMMENT 'model' IN full_pipe (ALSO CAN COMMENT scaler)
 # df = full_pipe.fit_transform(train)
 # print(df)
 
@@ -311,29 +345,29 @@ models_final = [LGBMClassifier(), RandomForestClassifier(), XGBClassifier(), Gra
 params = [
     {
         'model': [LGBMClassifier()],
-        'model__n_estimators': [300, 500, 600],
+        'model__n_estimators': [300, 500],
         'model__learning_rate': [0.01],
-        'model__num_leaves': [15, 17, 19],
+        'model__num_leaves': [13, 15, 19],
         'preprocessor__categorical__encoder__drop_first': [True],
-        'scaler__method': ['standard', 'robust'],
+        'scaler__method': ['standard'],
         'cleaner__make_ordinals': [False]
     },
     {
         'model': [RandomForestClassifier()],
-        'model__n_estimators': [200, 300, 500],
-        'model__max_depth': [10, 12],
-        'model__min_samples_split': [6, 7, 8],
-        'preprocessor__categorical__encoder__drop_first': [True, False],
-        'scaler__method': ['standard', 'robust'],
-        'cleaner__make_ordinals': [True, False]
+        'model__n_estimators': [200, 300],
+        'model__max_depth': [9, 10],
+        'model__min_samples_split': [7, 8],
+        'preprocessor__categorical__encoder__drop_first': [True],
+        'scaler__method': ['standard'],
+        'cleaner__make_ordinals': [False]
     },
     {
         'model': [XGBClassifier()],
-        'model__n_estimators': [50, 100, 150],
-        'model__learning_rate': [0.3, 0.5, 1.0],
-        'cleaner__make_ordinals': [True, False],
-        'scaler__method': ['standard', 'robust'],
-        'preprocessor__categorical__encoder__drop_first': [True, False]
+        'model__n_estimators': [25, 50, 200],
+        'model__learning_rate': [0.1, 0.3],
+        'cleaner__make_ordinals': [False],
+        'scaler__method': ['standard'],
+        'preprocessor__categorical__encoder__drop_first': [False]
     }
 ]
 
@@ -345,4 +379,4 @@ print(fitted_grid.best_params_)
 # print(fitted_grid.best_estimator_)
 
 best_model = fitted_grid.best_estimator_
-save_predictions_to_csv(best_model, test, 'predictions/output_14_advanced_imputation.csv')
+save_predictions_to_csv(best_model, test, 'predictions/output_16_final_imputation.csv')

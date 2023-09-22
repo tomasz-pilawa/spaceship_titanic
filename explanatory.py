@@ -3,6 +3,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+from sklearn.linear_model import LinearRegression
+
 pd.set_option('display.width', None)
 
 train = pd.read_csv('train.csv')
@@ -127,6 +129,8 @@ gc = df['Group'].value_counts().sort_index()
 
 df['Travelling_Solo'] = df['Group'].apply(lambda x: x not in set(gc[gc > 1].index))
 df['Group_Size'] = df.groupby('Group')['Member'].transform('count')
+
+# UNCOMMENT BELOW FOR PLOTS (plot_cabin) & LINE184 TO WORK, COMMENT FOR IMPUTATION TO WORK PROPERLY
 df['Cabin_Number'].fillna(df['Cabin_Number'].median(), inplace=True)
 df['Cabin_Number'] = df['Cabin_Number'].astype(int)
 
@@ -177,6 +181,7 @@ def plot_cabin():
 cbins = [0, 300, 600, 900, 1200, 1500, float('inf')]
 clabels = ['Cabin_Region1', 'Cabin_Region2', 'Cabin_Region3', 'Cabin_Region4', 'Cabin_Region5', 'Cabin_Region6']
 
+# LINE184
 df['Cabin_Region'] = pd.cut(df['Cabin_Number'], bins=cbins, labels=clabels, right=False)
 
 
@@ -276,7 +281,6 @@ df['HomePlanet'] = df.groupby('Group')['HomePlanet'].transform(
 
 
 def plot_cabin_deck_missing():
-
     crosstab = pd.crosstab(df['Cabin_Deck'], df['HomePlanet'])
     crosstab['Missing'] = df.groupby('Cabin_Deck')['HomePlanet'].apply(lambda x: x.isna().sum())
     print(crosstab)
@@ -329,6 +333,91 @@ def impute_home_planet(row):
 df.loc[(df['Cabin_Deck'] == 'D') & df['HomePlanet'].isna(), 'HomePlanet'] = 'Mars'
 
 # print('#HomePlanet missing values after:', df['HomePlanet'].isna().sum())
+
+
+def plot_surname_group():
+    crosstab = pd.crosstab(df['Group'], df['Surname'], margins=True)
+    print(crosstab)
+    plt.figure(figsize=(8, 6))
+    sns.countplot(x=crosstab['All'].index, data=crosstab['All'])
+    plt.ylabel('Count')
+    plt.title('Number of Unique Surname by Group')
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+    plt.show()
+
+
+# plot_surname_group()
+
+HP_bef = df['Surname'].isna().sum()
+
+df['Surname'] = df.groupby('Group')['Surname'].transform(
+    lambda t: t.fillna(t.mode()[0]) if not t.mode().empty else 'Unknown')
+
+print('#Surname missing values before:', HP_bef)
+print('#Surname missing values after:', df['Surname'].isna().sum())
+
+for n in ['Cabin_Deck', 'Cabin_Side']:
+    HP_bef = df[n].isna().sum()
+
+    df[n] = df.groupby('Group')[n].transform(
+        lambda t: t.fillna(t.mode()[0]) if not t.mode().empty else np.nan)
+    df[n] = df.groupby(['HomePlanet', 'Destination', 'Travelling_Solo'])[n].transform(
+        lambda x: x.fillna(x.mode()[0]) if not x.mode().empty and not pd.isna(x.name) else x).fillna(df[n])
+
+    print(f'#{n} missing values before:', HP_bef)
+    print(f'#{n} missing values after:', df[n].isna().sum())
+
+CN_bef = df['Cabin_Number'].isna().sum()
+
+# for deck in ['A', 'B', 'C', 'D', 'E', 'F', 'G']:
+#     missing_values_count = df[(df['Cabin_Deck'] == deck) & (df['Cabin_Number'].isna())].shape[0]
+#     print(f'Deck {deck}: Missing Values Count: {missing_values_count}')
+
+for deck in ['A', 'B', 'C', 'D', 'E', 'F', 'G']:
+    X_CN = df.loc[~(df['Cabin_Number'].isna()) & (df['Cabin_Deck'] == deck), 'Group']
+    y_CN = df.loc[~(df['Cabin_Number'].isna()) & (df['Cabin_Deck'] == deck), 'Cabin_Number']
+    X_test_CN = df.loc[(df['Cabin_Number'].isna()) & (df['Cabin_Deck'] == deck), 'Group']
+
+    # print(deck)
+    # print(X_CN.shape, y_CN.shape, X_test_CN.shape)
+
+    model_CN = LinearRegression()
+    model_CN.fit(X_CN.values.reshape(-1, 1), y_CN)
+    preds_CN = model_CN.predict(X_test_CN.values.reshape(-1, 1))
+    df.loc[(df['Cabin_Number'].isna()) & (df['Cabin_Deck'] == deck), 'Cabin_Number'] = preds_CN.astype(int)
+
+print('#Cabin_number missing values before:', CN_bef)
+print('#Cabin_number missing values after:', df['Cabin_Number'].isna().sum())
+
+A_bef = df['Age'].isna().sum().sum()
+
+df.loc[df['Age'].isna(), 'Age'] = \
+    df.groupby(['HomePlanet', 'No_Spending', 'Travelling_Solo', 'Cabin_Deck'])['Age'].transform(
+        lambda x: x.fillna(x.median()))[df.loc[df['Age'].isna(), 'Age'].index]
+
+print('#Age missing values before:', A_bef)
+print('#Age missing values after:', df['Age'].isna().sum())
+
+
+def plot_cryo_no_spending():
+    crosstab = pd.crosstab(df['CryoSleep'], df['No_Spending'])
+    plt.figure(figsize=(8, 6))
+    sns.heatmap(crosstab, annot=True, fmt='d')
+    plt.title('Cross-Tabulation: CryoSleep vs No_Spending')
+    plt.xlabel('CryoSleep')
+    plt.ylabel('No_Spending')
+    plt.show()
+
+
+# plot_cryo_no_spending()
+
+HP_bef = df['CryoSleep'].isna().sum()
+
+df['CryoSleep'] = df.groupby('No_Spending')['CryoSleep'].transform(lambda cs: cs.fillna(cs.mode()[0]))
+
+print('#CryoSleep missing values before:', HP_bef)
+print('#CryoSleep missing values after:', df['CryoSleep'].isna().sum())
 
 # print(df.isna().sum())
 # # print(df.head(20))
