@@ -1,0 +1,7 @@
+.idea/
+data
+predictions
+catboost_info
+__pycache__/
+testing.py
+hyperparameters_drop.txt
