@@ -9,6 +9,7 @@ from sklearn.pipeline import Pipeline, FeatureUnion
 from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.metrics import accuracy_score
 from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.feature_selection import mutual_info_classif
 
 from sklearn.svm import SVC
 from sklearn.naive_bayes import GaussianNB
@@ -23,8 +24,8 @@ from lightgbm import LGBMClassifier
 pd.set_option('display.width', None)
 pd.options.display.max_rows = None
 
-train = pd.read_csv('train.csv')
-test = pd.read_csv('test.csv')
+train = pd.read_csv('data/train.csv')
+test = pd.read_csv('data/test.csv')
 
 
 class GeneralCleaner(BaseEstimator, TransformerMixin):
@@ -103,11 +104,10 @@ class GeneralCleaner(BaseEstimator, TransformerMixin):
         x.loc[x['Cabin_Number'] < 0, 'Cabin_Number'] = 0
 
         x['Cabin'] = pd.cut(x['Cabin_Number'], bins=[0, 300, 600, 900, 1200, 1500, float('inf')],
-                    labels=['Region1', 'Region2', 'Region3', 'Region4', 'Region5', 'Region6'], right=False)
+                            labels=['Region1', 'Region2', 'Region3', 'Region4', 'Region5', 'Region6'], right=False)
 
         cabin_encoder = LabelEncoder()
         x['Cabin'] = cabin_encoder.fit_transform(x['Cabin'])
-
 
         x.loc[x['Age'].isna(), 'Age'] = \
             x.groupby(['HomePlanet', 'No_Spending', 'Travelling_Solo', 'Cabin_Deck'])['Age'].transform(
@@ -372,11 +372,12 @@ params = [
 ]
 
 
-results, fitted_grid = grid_search(train, full_pipe, params)
+# results, fitted_grid = grid_search(train, full_pipe, params)
+#
+# print(results)
+# print(fitted_grid.best_params_)
+# # print(fitted_grid.best_estimator_)
+#
+# best_model = fitted_grid.best_estimator_
+# save_predictions_to_csv(best_model, test, 'predictions/output_16_final_imputation.csv')
 
-print(results)
-print(fitted_grid.best_params_)
-# print(fitted_grid.best_estimator_)
-
-best_model = fitted_grid.best_estimator_
-save_predictions_to_csv(best_model, test, 'predictions/output_16_final_imputation.csv')

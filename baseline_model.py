@@ -11,12 +11,12 @@ from sklearn.impute import SimpleImputer
 
 pd.set_option('display.width', None)
 
-train = pd.read_csv('train.csv')
-test = pd.read_csv('test.csv')
+train = pd.read_csv('data/train.csv')
+test = pd.read_csv('data/test.csv')
 
-# print(train.head())
-# print(train.info())
-# print(train.describe())
+print(train.head())
+print(train.info())
+print(train.describe())
 
 features = list(train.select_dtypes(include='object').columns)
 # print(features)

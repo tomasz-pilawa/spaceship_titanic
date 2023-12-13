@@ -15,8 +15,8 @@ from sklearn.base import BaseEstimator, TransformerMixin
 
 pd.set_option('display.width', None)
 
-train = pd.read_csv('train.csv')
-test = pd.read_csv('test.csv')
+train = pd.read_csv('data/train.csv')
+test = pd.read_csv('data/test.csv')
 
 cat_feats = ['HomePlanet', 'CryoSleep', 'Destination', 'VIP', 'AgeGroup']
 num_feats = ['RoomService', 'FoodCourt', 'ShoppingMall', 'Spa', 'VRDeck']
