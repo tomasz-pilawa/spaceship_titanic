@@ -1,8 +1,4 @@
 import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
-
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.compose import ColumnTransformer
@@ -71,8 +67,8 @@ def fit_model(train_data):
 def save_predictions_to_csv(model, x_test, output_file):
     y_test = pd.DataFrame({'PassengerId': x_test['PassengerId']})
     y_test['Transported'] = model.predict(x_test)
-    print(y_test)
-    # y_test.to_csv(output_file, index=False)
+
+    y_test.to_csv(output_file, index=False)
 
 
 # fit_model(train)

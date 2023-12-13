@@ -1,15 +1,12 @@
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
 
 from sklearn.impute import SimpleImputer
-from sklearn.preprocessing import LabelEncoder, OrdinalEncoder, StandardScaler, RobustScaler
+from sklearn.preprocessing import LabelEncoder, StandardScaler, RobustScaler
 from sklearn.pipeline import Pipeline, FeatureUnion
 from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.metrics import accuracy_score
 from sklearn.base import BaseEstimator, TransformerMixin
-from sklearn.feature_selection import mutual_info_classif
 
 from sklearn.svm import SVC
 from sklearn.naive_bayes import GaussianNB
@@ -74,7 +71,6 @@ class GeneralCleaner(BaseEstimator, TransformerMixin):
 
         x.loc[(x['Cabin_Deck'] == 'D') & x['HomePlanet'].isna(), 'HomePlanet'] = 'Mars'
 
-        # x['Surname'] = x['Name'].str.split().str[-1]
         x['Surname'] = x.groupby('Group')['Surname'].transform(
             lambda t: t.fillna(t.mode()[0]) if not t.mode().empty else 'Unknown')
 
@@ -127,14 +123,10 @@ class GeneralCleaner(BaseEstimator, TransformerMixin):
         del x['Age']
         del x['PassengerId']
         del x['Name']
-
         del x['Group']
         del x['Member']
         del x['Cabin_Number']
-
         del x['Surname']
-
-        # print(x.dtypes)
 
         return x
 
@@ -286,16 +278,15 @@ preprocessing = FeatureUnionCustom([('categorical', cat_pipe),
                                     ('numeric', num_pipe)
                                     ])
 
+preview_df_pipe = Pipeline(steps=[('cleaner', GeneralCleaner()),
+                                  ('preprocessor', preprocessing),
+                                  ])
+
 full_pipe = Pipeline(steps=[('cleaner', GeneralCleaner()),
                             ('preprocessor', preprocessing),
                             ('scaler', CustomScaler()),
                             ('model', RandomForestClassifier())
                             ])
-
-
-# TESTING THE PIPE DF OUTPUT - COMMENT 'model' IN full_pipe (ALSO CAN COMMENT scaler)
-# df = full_pipe.fit_transform(train)
-# print(df)
 
 
 def fit_model(train_data):
@@ -311,12 +302,7 @@ def fit_model(train_data):
 def save_predictions_to_csv(model, x_test, output_file):
     y_test = pd.DataFrame({'PassengerId': x_test['PassengerId']})
     y_test['Transported'] = model.predict(x_test)
-    # print(y_test)
     y_test.to_csv(output_file, index=False)
-
-
-# fit_model(train)
-# save_predictions_to_csv(full_pipe, test, 'predictions/output_8_num_transformed.csv')
 
 
 def grid_search(data, pipe, param_grid):
@@ -372,12 +358,20 @@ params = [
 ]
 
 
-# results, fitted_grid = grid_search(train, full_pipe, params)
-#
-# print(results)
-# print(fitted_grid.best_params_)
-# # print(fitted_grid.best_estimator_)
-#
-# best_model = fitted_grid.best_estimator_
-# save_predictions_to_csv(best_model, test, 'predictions/output_16_final_imputation.csv')
+def preview_df():
+    df = preview_df_pipe.fit_transform(train)
+    print(df)
 
+
+def save_grid_predictions(csv_filename: str):
+    preview_df()
+    results, fitted_grid = grid_search(train, full_pipe, params)
+
+    print(results)
+    print(fitted_grid.best_params_)
+
+    best_model = fitted_grid.best_estimator_
+    save_predictions_to_csv(best_model, test, csv_filename)
+
+
+# save_grid_predictions(csv_filename='predictions/output_17.csv')
